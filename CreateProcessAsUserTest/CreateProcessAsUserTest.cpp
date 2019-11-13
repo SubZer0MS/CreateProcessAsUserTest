@@ -7,10 +7,10 @@
 #pragma comment(lib, "netapi32.lib")
 #pragma comment(lib, "userenv.lib")
 
-PCWSTR Win32ErrorToString(DWORD dwErr)
+void PrintWin32ErrorToString(DWORD dwErr)
 {
     const int maxSite = 512;
-    PCWSTR szDefaultMessage = L"<< unknown message for this error code >>";
+    LPWSTR szDefaultMessage = L"<< unknown message for this error code >>";
     WCHAR wszMsgBuff[maxSite];
     DWORD dwChars;
     HINSTANCE hInst = NULL;
@@ -30,7 +30,7 @@ PCWSTR Win32ErrorToString(DWORD dwErr)
         hInst = LoadLibraryW(L"Ntdsbmsg.dll");
         if (!hInst)
         {
-            return szDefaultMessage;
+            wprintf(L"%s\n", szDefaultMessage);
         }
 
         dwChars = FormatMessageW(
@@ -45,30 +45,9 @@ PCWSTR Win32ErrorToString(DWORD dwErr)
 
         FreeLibrary(hInst);
         hInst = NULL;
-
-        if (!dwChars)
-        {
-            hInst = LoadLibraryW(L"Advapi32.dll");
-            if (!hInst)
-            {
-                return szDefaultMessage;
-            }
-
-            dwChars = FormatMessageW(
-                FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
-                hInst,
-                dwErr,
-                NULL,
-                wszMsgBuff,
-                maxSite,
-                nullptr
-            );
-
-            FreeLibrary(hInst);
-        }
     }
 
-    return (dwChars ? wszMsgBuff : szDefaultMessage);
+    wprintf(L"%s\n", (dwChars ? wszMsgBuff : szDefaultMessage));
 }
 
 int wmain(int argc, PWCHAR argv[])
@@ -109,7 +88,8 @@ int wmain(int argc, PWCHAR argv[])
     ))
     {
         status = GetLastError();
-        std::wcout << L"ERROR: Cannot logon user with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
+        std::wcout << L"ERROR: Cannot logon user with error: " << status << " => ";
+        PrintWin32ErrorToString(status);
         goto cleanup;
     }
 
@@ -136,7 +116,8 @@ int wmain(int argc, PWCHAR argv[])
         if (status != ERROR_SUCCESS)
         {
             status = HRESULT_FROM_WIN32(status);
-            std::wcout << L"ERROR: Cannot find domain controller with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
+            std::wcout << L"ERROR: Cannot find domain controller with error: " << status << " => ";
+            PrintWin32ErrorToString(status);
             goto cleanup;
         }
     }
@@ -151,7 +132,8 @@ int wmain(int argc, PWCHAR argv[])
     if (status != ERROR_SUCCESS)
     {
         status = HRESULT_FROM_WIN32(status);
-        std::wcout << L"ERROR: Cannot get user info with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
+        std::wcout << L"ERROR: Cannot get user info with error: " << status << " => ";
+        PrintWin32ErrorToString(status);
         goto cleanup;
     }
 
@@ -164,14 +146,16 @@ int wmain(int argc, PWCHAR argv[])
     if (!LoadUserProfileW(hToken, &pProfileInfo))
     {
         status = GetLastError();
-        std::wcout << L"ERROR: Cannot user profile with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
+        std::wcout << L"ERROR: Cannot user profile with error: " << status << " => ";
+        PrintWin32ErrorToString(status);
         goto cleanup;
     }
 
     if (!CreateEnvironmentBlock(&pEnvironmentBlock, hToken, false))
     {
         status = GetLastError();
-        std::wcout << L"ERROR: Cannot create environment block with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
+        std::wcout << L"ERROR: Cannot create environment block with error: " << status << " => ";
+        PrintWin32ErrorToString(status);
         goto cleanup;
     }
 
@@ -196,7 +180,8 @@ int wmain(int argc, PWCHAR argv[])
     ))
     {
         status = HRESULT_FROM_WIN32(GetLastError());
-        std::wcout << L"ERROR: Cannot create process with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
+        std::wcout << L"ERROR: Cannot create process with error: " << status << " => ";
+        PrintWin32ErrorToString(status);
         goto cleanup;
     }
     else
@@ -209,11 +194,13 @@ int wmain(int argc, PWCHAR argv[])
             if (!GetExitCodeProcess(processInfo.hProcess, &status))
             {
                 status = GetLastError();
-                std::wcout << L"ERROR: Failed to get exit status of child process with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
+                std::wcout << L"ERROR: Failed to get exit status of child process with error: " << status << " => ";
+                PrintWin32ErrorToString(status);
             }
             else
             {
-                std::wcout << L"Child process succesfully existed with exit code: " << status << " => " << Win32ErrorToString(status) << std::endl;
+                std::wcout << L"Child process succesfully existed with exit code: " << status << " => ";
+                PrintWin32ErrorToString(status);
             }
         }
         else
@@ -226,7 +213,7 @@ int wmain(int argc, PWCHAR argv[])
             CloseHandle(startupInfo.hStdError);
             startupInfo.hStdError = NULL;
         }
-        
+
         if (startupInfo.hStdInput)
         {
             CloseHandle(startupInfo.hStdInput);
@@ -274,5 +261,3 @@ cleanup:
 
     return status;
 }
-
-
