@@ -176,7 +176,7 @@ int wmain(int argc, PWCHAR argv[])
     }
     else
     {
-        std::wcout << L"!!! SUCCESS !!! => Waiting for child porcess to exist ..." << std::endl;
+        std::wcout << L"!!! SUCCESS !!! => Waiting (forever) for child porcess to exit ..." << std::endl;
 
         status = WaitForSingleObject(processInfo.hProcess, INFINITE);
         if (status == WAIT_OBJECT_0)
@@ -193,7 +193,7 @@ int wmain(int argc, PWCHAR argv[])
         }
         else
         {
-            std::wcout << L"Something went wrong while waiting on the child process to finish." << std::endl;
+            std::wcout << L"Something went wrong while waiting on the child process to finish. This can be ignored in this case though ..." << std::endl;
         }
 
         if (startupInfo.hStdError)
