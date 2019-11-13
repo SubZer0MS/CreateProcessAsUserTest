@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29424.173
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CreateProcessAsUserTest", "CreateProcessAsUserTest\CreateProcessAsUserTest.vcxproj", "{771950D1-397E-4989-929B-A440136C63B2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{771950D1-397E-4989-929B-A440136C63B2}.Debug|x64.ActiveCfg = Debug|x64
+		{771950D1-397E-4989-929B-A440136C63B2}.Debug|x64.Build.0 = Debug|x64
+		{771950D1-397E-4989-929B-A440136C63B2}.Debug|x86.ActiveCfg = Debug|Win32
+		{771950D1-397E-4989-929B-A440136C63B2}.Debug|x86.Build.0 = Debug|Win32
+		{771950D1-397E-4989-929B-A440136C63B2}.Release|x64.ActiveCfg = Release|x64
+		{771950D1-397E-4989-929B-A440136C63B2}.Release|x64.Build.0 = Release|x64
+		{771950D1-397E-4989-929B-A440136C63B2}.Release|x86.ActiveCfg = Release|Win32
+		{771950D1-397E-4989-929B-A440136C63B2}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E599EBC4-076F-45F1-96F1-A1194FB774C7}
+	EndGlobalSection
+EndGlobal
