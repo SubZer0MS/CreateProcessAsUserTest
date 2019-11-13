@@ -13,6 +13,7 @@ PCWSTR Win32ErrorToString(DWORD dwErr)
     PCWSTR szDefaultMessage = L"<< unknown message for this error code >>";
     WCHAR wszMsgBuff[maxSite];
     DWORD dwChars;
+    HINSTANCE hInst = NULL;
 
     dwChars = FormatMessageW(
         FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -26,8 +27,6 @@ PCWSTR Win32ErrorToString(DWORD dwErr)
 
     if (!dwChars)
     {
-        HINSTANCE hInst;
-
         hInst = LoadLibraryW(L"Ntdsbmsg.dll");
         if (!hInst)
         {
@@ -45,6 +44,28 @@ PCWSTR Win32ErrorToString(DWORD dwErr)
         );
 
         FreeLibrary(hInst);
+        hInst = NULL;
+
+        if (!dwChars)
+        {
+            hInst = LoadLibraryW(L"Advapi32.dll");
+            if (!hInst)
+            {
+                return szDefaultMessage;
+            }
+
+            dwChars = FormatMessageW(
+                FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+                hInst,
+                dwErr,
+                NULL,
+                wszMsgBuff,
+                maxSite,
+                nullptr
+            );
+
+            FreeLibrary(hInst);
+        }
     }
 
     return (dwChars ? wszMsgBuff : szDefaultMessage);
@@ -134,6 +155,7 @@ int wmain(int argc, PWCHAR argv[])
         goto cleanup;
     }
 
+    ZeroMemory(&pProfileInfo, sizeof(pProfileInfo));
     pProfileInfo.dwSize = sizeof(pProfileInfo);
     pProfileInfo.lpUserName = const_cast<LPWSTR>(userAccount.c_str());
     pProfileInfo.dwFlags = PI_NOUI;
@@ -153,8 +175,11 @@ int wmain(int argc, PWCHAR argv[])
         goto cleanup;
     }
 
+    ZeroMemory(&startupInfo, sizeof(startupInfo));
     startupInfo.cb = sizeof(startupInfo);
     startupInfo.lpDesktop = const_cast<LPWSTR>(L"");
+
+    ZeroMemory(&processInfo, sizeof(processInfo));
 
     if (!CreateProcessAsUserW(
         hToken,
@@ -170,7 +195,7 @@ int wmain(int argc, PWCHAR argv[])
         &processInfo
     ))
     {
-        status = GetLastError();
+        status = HRESULT_FROM_WIN32(GetLastError());
         std::wcout << L"ERROR: Cannot create process with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
         goto cleanup;
     }
