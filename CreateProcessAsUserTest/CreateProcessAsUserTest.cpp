@@ -7,6 +7,33 @@
 #pragma comment(lib, "netapi32.lib")
 #pragma comment(lib, "userenv.lib")
 
+PCWSTR Win32ErrorToString(DWORD dwErr)
+{
+    const int maxSite = 512;
+    PCWSTR szDefaultMessage = L"<< unknown message for this error code >>";
+    WCHAR wszMsgBuff[maxSite];
+    DWORD dwChars;
+
+    dwChars = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, dwErr, 0, wszMsgBuff, maxSite, nullptr);
+
+    if (!dwChars)
+    {
+        HINSTANCE hInst;
+
+        hInst = LoadLibraryW(L"Ntdsbmsg.dll");
+        if (!hInst)
+        {
+            return szDefaultMessage;
+        }
+
+        dwChars = FormatMessageW(FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS, hInst, dwErr, 0, wszMsgBuff, maxSite, nullptr);
+
+        FreeLibrary(hInst);
+    }
+
+    return (dwChars ? wszMsgBuff : szDefaultMessage);
+}
+
 int wmain(int argc, PWCHAR argv[])
 {
     if (argc < 4)
@@ -38,7 +65,7 @@ int wmain(int argc, PWCHAR argv[])
     if (!LogonUserW(userName.c_str(), domainName.c_str(), userPassword.c_str(), LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, &hToken))
     {
         status = GetLastError();
-        std::wcout << L"ERROR: Cannot logon user with error: " << status << std::endl;
+        std::wcout << L"ERROR: Cannot logon user with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
         goto cleanup;
     }
 
@@ -48,7 +75,8 @@ int wmain(int argc, PWCHAR argv[])
         status = DsGetDcNameW(nullptr, domainName.c_str(), nullptr, nullptr, DS_FORCE_REDISCOVERY, &pDomainControllerInfo);
         if (status != ERROR_SUCCESS)
         {
-            std::wcout << L"ERROR: Cannot find domain controller with error: " << HRESULT_FROM_WIN32(status) << std::endl;
+            status = HRESULT_FROM_WIN32(status);
+            std::wcout << L"ERROR: Cannot find domain controller with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
             goto cleanup;
         }
     }
@@ -56,7 +84,8 @@ int wmain(int argc, PWCHAR argv[])
     status = NetUserGetInfo(pDomainControllerInfo->DomainControllerName, userName.c_str(), 4, reinterpret_cast<LPBYTE*>(&pUserInfo));
     if (status != ERROR_SUCCESS)
     {
-        std::wcout << L"ERROR: Cannot get user info with error: " << HRESULT_FROM_WIN32(status) << std::endl;
+        status = HRESULT_FROM_WIN32(status);
+        std::wcout << L"ERROR: Cannot get user info with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
         goto cleanup;
     }
 
@@ -68,14 +97,14 @@ int wmain(int argc, PWCHAR argv[])
     if (!LoadUserProfileW(hToken, &pProfileInfo))
     {
         status = GetLastError();
-        std::wcout << L"ERROR: Cannot user profile with error: " << status << std::endl;
+        std::wcout << L"ERROR: Cannot user profile with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
         goto cleanup;
     }
 
     if (!CreateEnvironmentBlock(&pEnvironmentBlock, hToken, false))
     {
         status = GetLastError();
-        std::wcout << L"ERROR: Cannot create environment block with error: " << status << std::endl;
+        std::wcout << L"ERROR: Cannot create environment block with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
         goto cleanup;
     }
 
@@ -85,7 +114,7 @@ int wmain(int argc, PWCHAR argv[])
     if (!CreateProcessAsUserW(hToken, nullptr, const_cast<LPWSTR>(cmdLine.c_str()), nullptr, nullptr, false, CREATE_UNICODE_ENVIRONMENT, pEnvironmentBlock, nullptr, &startupInfo, &processInfo))
     {
         status = GetLastError();
-        std::wcout << L"ERROR: Cannot create process with error: " << status << std::endl;
+        std::wcout << L"ERROR: Cannot create process with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
         goto cleanup;
     }
     else
@@ -98,11 +127,11 @@ int wmain(int argc, PWCHAR argv[])
             if (!GetExitCodeProcess(processInfo.hProcess, &status))
             {
                 status = GetLastError();
-                std::wcout << L"ERROR: Failed to get exit status of child process with error: " << status << std::endl;
+                std::wcout << L"ERROR: Failed to get exit status of child process with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
             }
             else
             {
-                std::wcout << L"Child process succesfully existed with exit code: " << status << std::endl;
+                std::wcout << L"Child process succesfully existed with exit code: " << status << " => " << Win32ErrorToString(status) << std::endl;
             }
         }
         else
