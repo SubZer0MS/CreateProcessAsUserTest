@@ -14,7 +14,15 @@ PCWSTR Win32ErrorToString(DWORD dwErr)
     WCHAR wszMsgBuff[maxSite];
     DWORD dwChars;
 
-    dwChars = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, dwErr, 0, wszMsgBuff, maxSite, nullptr);
+    dwChars = FormatMessageW(
+        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        nullptr,
+        dwErr,
+        NULL,
+        wszMsgBuff,
+        maxSite,
+        nullptr
+    );
 
     if (!dwChars)
     {
@@ -26,7 +34,15 @@ PCWSTR Win32ErrorToString(DWORD dwErr)
             return szDefaultMessage;
         }
 
-        dwChars = FormatMessageW(FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS, hInst, dwErr, 0, wszMsgBuff, maxSite, nullptr);
+        dwChars = FormatMessageW(
+            FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+            hInst,
+            dwErr,
+            NULL,
+            wszMsgBuff,
+            maxSite,
+            nullptr
+        );
 
         FreeLibrary(hInst);
     }
@@ -62,17 +78,40 @@ int wmain(int argc, PWCHAR argv[])
     STARTUPINFOW startupInfo;
     PROCESS_INFORMATION processInfo;
 
-    if (!LogonUserW(userName.c_str(), domainName.c_str(), userPassword.c_str(), LOGON32_LOGON_INTERACTIVE, LOGON32_PROVIDER_DEFAULT, &hToken))
+    if (!LogonUserW(
+        userName.c_str(),
+        domainName.c_str(),
+        userPassword.c_str(),
+        LOGON32_LOGON_INTERACTIVE,
+        LOGON32_PROVIDER_DEFAULT,
+        &hToken
+    ))
     {
         status = GetLastError();
         std::wcout << L"ERROR: Cannot logon user with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
         goto cleanup;
     }
 
-    status = DsGetDcNameW(nullptr, domainName.c_str(), nullptr, nullptr, NULL, &pDomainControllerInfo);
+    status = DsGetDcNameW(
+        nullptr,
+        domainName.c_str(),
+        nullptr,
+        nullptr,
+        NULL,
+        &pDomainControllerInfo
+    );
+
     if (status != ERROR_SUCCESS)
     {
-        status = DsGetDcNameW(nullptr, domainName.c_str(), nullptr, nullptr, DS_FORCE_REDISCOVERY, &pDomainControllerInfo);
+        status = DsGetDcNameW(
+            nullptr,
+            domainName.c_str(),
+            nullptr,
+            nullptr,
+            DS_FORCE_REDISCOVERY,
+            &pDomainControllerInfo
+        );
+
         if (status != ERROR_SUCCESS)
         {
             status = HRESULT_FROM_WIN32(status);
@@ -81,7 +120,13 @@ int wmain(int argc, PWCHAR argv[])
         }
     }
 
-    status = NetUserGetInfo(pDomainControllerInfo->DomainControllerName, userName.c_str(), 4, reinterpret_cast<LPBYTE*>(&pUserInfo));
+    status = NetUserGetInfo(
+        pDomainControllerInfo->DomainControllerName,
+        userName.c_str(),
+        4,
+        reinterpret_cast<LPBYTE*>(&pUserInfo)
+    );
+
     if (status != ERROR_SUCCESS)
     {
         status = HRESULT_FROM_WIN32(status);
@@ -111,7 +156,19 @@ int wmain(int argc, PWCHAR argv[])
     startupInfo.cb = sizeof(startupInfo);
     startupInfo.lpDesktop = const_cast<LPWSTR>(L"");
 
-    if (!CreateProcessAsUserW(hToken, nullptr, const_cast<LPWSTR>(cmdLine.c_str()), nullptr, nullptr, false, CREATE_UNICODE_ENVIRONMENT, pEnvironmentBlock, nullptr, &startupInfo, &processInfo))
+    if (!CreateProcessAsUserW(
+        hToken,
+        nullptr,
+        const_cast<LPWSTR>(cmdLine.c_str()),
+        nullptr,
+        nullptr,
+        false,
+        CREATE_UNICODE_ENVIRONMENT,
+        pEnvironmentBlock,
+        nullptr,
+        &startupInfo,
+        &processInfo
+    ))
     {
         status = GetLastError();
         std::wcout << L"ERROR: Cannot create process with error: " << status << " => " << Win32ErrorToString(status) << std::endl;
