@@ -119,7 +119,7 @@ int wmain(int argc, PWCHAR argv[])
     tokenPrivileges.PrivilegeCount = 1;
     tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 
-    if (!LookupPrivilegeValueW(NULL, SE_ASSIGNPRIMARYTOKEN_NAME, &tokenPrivileges.Privileges[0].Luid))
+    if (!LookupPrivilegeValueW(nullptr, SE_ASSIGNPRIMARYTOKEN_NAME, &tokenPrivileges.Privileges[0].Luid))
     {
         status = GetLastError();
         PrintWin32ErrorToString(L"ERROR: Cannot lookup privilege value (LUID) with error:", status);
@@ -142,7 +142,6 @@ int wmain(int argc, PWCHAR argv[])
     {
         if (!privCheckStatus)
         {
-            std::wcout << L"!!! INPORTANT !!! The \"SeAssignPrimaryTokenPrivilege\" (Replace a process level token) priviledge is missing, trying to add it and continue ..." << std::endl;
             if (!AdjustTokenPrivileges(hToken, FALSE, &tokenPrivileges, NULL, nullptr, nullptr))
             {
                 status = GetLastError();
