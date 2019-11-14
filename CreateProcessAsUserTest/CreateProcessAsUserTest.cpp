@@ -10,26 +10,10 @@
 HANDLE g_hStopEvent = NULL;
 HANDLE g_hProcess = NULL;
 
-bool WINAPI ConsoleHandler(DWORD signal)
-{
-    if (signal == CTRL_C_EVENT ||
-        signal == CTRL_CLOSE_EVENT ||
-        signal == CTRL_BREAK_EVENT ||
-        signal == CTRL_LOGOFF_EVENT ||
-        signal == CTRL_SHUTDOWN_EVENT
-        )
-    {
-        TerminateProcess(g_hProcess, S_OK);
-        SetEvent(g_hStopEvent);
-    }
-
-    return true;
-}
-
 void PrintWin32ErrorToString(LPCWSTR szMessage, DWORD dwErr)
 {
     const int maxSite = 512;
-    const LPCWSTR szFormat = L" hex: 0x%x dec: %d message: %s\n";
+    const LPCWSTR szFormat = L"%s hex: 0x%x dec: %d message: %s\n";
     LPCWSTR szDefaultMessage = L"<< unknown message for this error code >>";
     WCHAR wszMsgBuff[maxSite];
     DWORD dwChars;
@@ -50,7 +34,7 @@ void PrintWin32ErrorToString(LPCWSTR szMessage, DWORD dwErr)
         hInst = LoadLibraryW(L"Ntdsbmsg.dll");
         if (!hInst)
         {
-            wprintf(szFormat, dwErr, dwErr, szDefaultMessage);
+            wprintf(szFormat, szMessage, dwErr, dwErr, szDefaultMessage);
         }
 
         dwChars = FormatMessageW(
@@ -70,7 +54,27 @@ void PrintWin32ErrorToString(LPCWSTR szMessage, DWORD dwErr)
         }
     }
 
-    wprintf(szFormat, dwErr, dwErr, (dwChars ? wszMsgBuff : szDefaultMessage));
+    wprintf(szFormat, szMessage, dwErr, dwErr, (dwChars ? wszMsgBuff : szDefaultMessage));
+}
+
+bool WINAPI ConsoleHandler(DWORD signal)
+{
+    if (signal == CTRL_C_EVENT ||
+        signal == CTRL_CLOSE_EVENT ||
+        signal == CTRL_BREAK_EVENT ||
+        signal == CTRL_LOGOFF_EVENT ||
+        signal == CTRL_SHUTDOWN_EVENT
+        )
+    {
+        if (!TerminateProcess(g_hProcess, S_OK))
+        {
+            PrintWin32ErrorToString(L"ERROR: Could not terminate child process (needs to be terminated/closed manually) with error:", GetLastError());
+        }
+
+        SetEvent(g_hStopEvent);
+    }
+
+    return true;
 }
 
 int wmain(int argc, PWCHAR argv[])
@@ -97,9 +101,69 @@ int wmain(int argc, PWCHAR argv[])
     LPUSER_INFO_4 pUserInfo = nullptr;
     PROFILEINFOW pProfileInfo;
     HANDLE hToken = NULL;
+    TOKEN_PRIVILEGES tokenPrivileges;
     LPVOID pEnvironmentBlock = nullptr;
     STARTUPINFOW startupInfo;
     PROCESS_INFORMATION processInfo;
+    PRIVILEGE_SET privileges;
+    BOOL privCheckStatus;
+
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+    {
+        status = GetLastError();
+        PrintWin32ErrorToString(L"ERROR: Cannot open current user token with error:", status);
+        goto cleanup;
+    }
+
+    ZeroMemory(&tokenPrivileges, sizeof(tokenPrivileges));
+    tokenPrivileges.PrivilegeCount = 1;
+    tokenPrivileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    if (!LookupPrivilegeValueW(NULL, SE_ASSIGNPRIMARYTOKEN_NAME, &tokenPrivileges.Privileges[0].Luid))
+    {
+        status = GetLastError();
+        PrintWin32ErrorToString(L"ERROR: Cannot lookup privilege value (LUID) with error:", status);
+        goto cleanup;
+    }
+
+    ZeroMemory(&privileges, sizeof(privileges));
+    privileges.PrivilegeCount = 1;
+    privileges.Control = PRIVILEGE_SET_ALL_NECESSARY;
+    privileges.Privilege[0].Luid = tokenPrivileges.Privileges[0].Luid;
+    privileges.Privilege[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    if (!PrivilegeCheck(hToken, &privileges, &privCheckStatus))
+    {
+        status = GetLastError();
+        PrintWin32ErrorToString(L"ERROR: Cannot check user privileges with error:", status);
+        goto cleanup;
+    }
+    else
+    {
+        if (!privCheckStatus)
+        {
+            std::wcout << L"!!! INPORTANT !!! The \"SeAssignPrimaryTokenPrivilege\" (Replace a process level token) priviledge is missing, trying to add it and continue ..." << std::endl;
+            if (!AdjustTokenPrivileges(hToken, FALSE, &tokenPrivileges, NULL, nullptr, nullptr))
+            {
+                status = GetLastError();
+                PrintWin32ErrorToString(L"ERROR: Cannot adjust privileges with error:", status);
+                goto cleanup;
+            }
+            else if (GetLastError() == ERROR_NOT_ALL_ASSIGNED)
+            {
+                status = GetLastError();
+                PrintWin32ErrorToString(L"ERROR: Cannot adjust privileges with error:", status);
+                std::wcout << L"Open secpol.msc and got to \"Security Settings\" > \"Local Policies\" > \"User Rights Assignment\"" << std::endl;
+                std::wcout << L"From there, add the user under which this process is running to the \"Replace a process level token\" policy and log off and back on again (with that user)." << std::endl;
+                goto cleanup;
+            }
+            else
+            {
+                CloseHandle(hToken);
+                hToken = NULL;
+            }
+        }
+    }
 
     if (!LogonUserW(
         userName.c_str(),
@@ -224,7 +288,7 @@ int wmain(int argc, PWCHAR argv[])
 
         std::wcout << L"\tAlso waiting for \"CTRL+C\" to (force) terminate the child process and finish the program (just in case it has no UI or you can't see it for some reason) ..." << std::endl;
         std::wcout << L"\tIf you are using a tool like PsExec.exe (or similar) to start this RunAs tool (program/exe), then, if you press \"CTRL+C\"," << std::endl;
-        std::wcout << L"it will terminate without being able to close the child process in some situations (running under gMSA for example) and so, " << std::endl;
+        std::wcout << L"it will terminate without being able to close the child process in some situations (non-interactive - running under gMSA for example) and so, " << std::endl;
         std::wcout << L"it might be that you need to kill the child process manually - PID of the child process is: " << processInfo.dwProcessId << std::endl;
 
         const int waitHandleCount = 2;
